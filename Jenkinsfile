@@ -2,8 +2,8 @@ pipeline {
     agent any
 
     environment {
-        KEYVAULT_NAME   = "my-keyvault"
-        KV_SECRET_NAME  = "spn-client-secret"
+        KEYVAULT_NAME   = "kv-databricks-fab"
+        KV_SECRET_NAME  = "db-fab-sec-01"
 
         DATABRICKS_HOST = "https://adb-xxxxxxxx.xx.azuredatabricks.net"
         SECRET_SCOPE    = "spn-scope"
