@@ -5,7 +5,7 @@ pipeline {
         KEYVAULT_NAME   = "kv-databricks-fab"
         KV_SECRET_NAME  = "db-fab-sec-01"
 
-        DATABRICKS_HOST = "https://adb-xxxxxxxx.xx.azuredatabricks.net"
+        DATABRICKS_HOST = "https://adb-7405609173671370.10.azuredatabricks.net"
         SECRET_SCOPE    = "spn-scope"
         SECRET_KEY      = "client-secret"
     }
