@@ -2,17 +2,16 @@ pipeline {
     agent any
 
     environment {
-        KEYVAULT_NAME   = "kv-databricks-fab"
-        KV_SECRET_NAME  = "db-fab-sec-01"
+        KEYVAULT_NAME = "kv-databricks-fab"
+        KV_SECRET_NAME = "customer-key-01"
 
         DATABRICKS_HOST = "https://adb-7405609173671370.10.azuredatabricks.net"
-        SECRET_SCOPE    = "spn-scope"
-        SECRET_KEY      = "client-secret"
+        SP_NAME = "spn-key-vault-jenk"
     }
 
     stages {
 
-        stage('Azure Login using SPN') {
+        stage('Azure Login') {
             steps {
                 withCredentials([
                     string(credentialsId: 'AZURE_CLIENT_ID', variable: 'AZ_CLIENT_ID'),
@@ -20,64 +19,55 @@ pipeline {
                     string(credentialsId: 'AZURE_TENANT_ID', variable: 'AZ_TENANT_ID')
                 ]) {
                     sh '''
-                        az login --service-principal \
-                          -u $AZ_CLIENT_ID \
-                          -p $AZ_CLIENT_SECRET \
-                          --tenant $AZ_TENANT_ID
+                      az login --service-principal \
+                        -u $AZ_CLIENT_ID \
+                        -p $AZ_CLIENT_SECRET \
+                        --tenant $AZ_TENANT_ID
                     '''
                 }
             }
         }
 
-        stage('Read Secret from Key Vault') {
+        stage('Disable old Key Vault secret') {
             steps {
-                script {
-                    env.SPN_SECRET = sh(
-                        script: """
-                        az keyvault secret show \
-                          --vault-name ${KEYVAULT_NAME} \
-                          --name ${KV_SECRET_NAME} \
-                          --query value -o tsv
-                        """,
-                        returnStdout: true
-                    ).trim()
-                }
+                sh '''
+                  az keyvault secret set-attributes \
+                    --vault-name ${KEYVAULT_NAME} \
+                    --name ${KV_SECRET_NAME} \
+                    --enabled false || true
+                '''
             }
         }
 
-        stage('Create Databricks Secret Scope (idempotent)') {
+        stage('Generate new Databricks OAuth secret') {
             steps {
                 withCredentials([
                     string(credentialsId: 'DATABRICKS_TOKEN', variable: 'DB_TOKEN')
                 ]) {
-                    sh '''
-                        curl -s -X POST $DATABRICKS_HOST/api/2.0/secrets/scopes/create \
-                        -H "Authorization: Bearer $DB_TOKEN" \
-                        -H "Content-Type: application/json" \
-                        -d '{
-                              "scope": "'${SECRET_SCOPE}'"
-                            }' || true
-                    '''
+                    script {
+                        env.NEW_SECRET = sh(
+                            script: """
+                            curl -s -X POST ${DATABRICKS_HOST}/api/2.0/accounts/servicePrincipals/generateOAuthSecret \
+                              -H "Authorization: Bearer ${DB_TOKEN}" \
+                              -H "Content-Type: application/json" \
+                              -d '{ "service_principal_name": "${SP_NAME}" }' \
+                              | jq -r '.client_secret'
+                            """,
+                            returnStdout: true
+                        ).trim()
+                    }
                 }
             }
         }
 
-        stage('Put Secret into Databricks') {
+        stage('Save new secret to Key Vault') {
             steps {
-                withCredentials([
-                    string(credentialsId: 'DATABRICKS_TOKEN', variable: 'DB_TOKEN')
-                ]) {
-                    sh '''
-                        curl -X POST $DATABRICKS_HOST/api/2.0/secrets/put \
-                        -H "Authorization: Bearer $DB_TOKEN" \
-                        -H "Content-Type: application/json" \
-                        -d '{
-                              "scope": "'${SECRET_SCOPE}'",
-                              "key": "'${SECRET_KEY}'",
-                              "string_value": "'${SPN_SECRET}'"
-                            }'
-                    '''
-                }
+                sh '''
+                  az keyvault secret set \
+                    --vault-name ${KEYVAULT_NAME} \
+                    --name ${KV_SECRET_NAME} \
+                    --value "${NEW_SECRET}"
+                '''
             }
         }
     }
