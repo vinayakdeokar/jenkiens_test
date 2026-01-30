@@ -41,25 +41,30 @@ pipeline {
     }
 
     stage('Generate Databricks SP Secret') {
-    steps {
+      steps {
         withCredentials([
-            string(credentialsId: 'DATABRICKS_WS_TOKEN', variable: 'DB_TOKEN')
+          string(credentialsId: 'DATABRICKS_WS_TOKEN', variable: 'DB_TOKEN')
         ]) {
-            script {
-                env.NEW_VALUE = sh(
-                    returnStdout: true,
-                    script: '''
-                        set -e
-                        RESPONSE=$(curl -s -X POST \
-                          "$DATABRICKS_HOST/api/2.0/service-principals/$SP_ID/secrets" \
-                          -H "Authorization: Bearer $DB_TOKEN" \
-                          -H "Content-Type: application/json")
+          script {
+            def resp = sh(
+              returnStdout: true,
+              script: '''
+                set -e
+                curl -s -X POST \
+                  "$DATABRICKS_HOST/api/2.0/service-principals/$SP_ID/secrets" \
+                  -H "Authorization: Bearer $DB_TOKEN" \
+                  -H "Content-Type: application/json"
+              '''
+            ).trim()
 
-                        echo "$RESPONSE" | jq -r '.secret'
-                    '''
-                ).trim()
-            }
+            // jq काढून टाकलं — Groovy safe parsing
+            env.NEW_VALUE = resp.replaceAll(
+              /.*"secret"\s*:\s*"([^"]+)".*/,
+              '$1'
+            )
+          }
         }
+      }
     }
 
     stage('Save new secret to Key Vault') {
@@ -72,5 +77,6 @@ pipeline {
         '''
       }
     }
+
   }
 }
