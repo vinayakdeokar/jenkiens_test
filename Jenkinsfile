@@ -2,11 +2,12 @@ pipeline {
     agent any
 
     environment {
-        KEYVAULT_NAME = "kv-databricks-fab"
-        KV_SECRET_NAME = "customer-key-01"
+        KEYVAULT_NAME     = "kv-databricks-fab"
+        OLD_SECRET_NAME   = "db-fab-sec-01"
+        NEW_SECRET_NAME   = "customer-key-01"
 
-        DATABRICKS_HOST = "https://adb-7405609173671370.10.azuredatabricks.net"
-        SP_NAME = "spn-key-vault-jenk"
+        DATABRICKS_HOST  = "https://adb-7405609173671370.10.azuredatabricks.net"
+        SP_NAME          = "spn-key-vault-jenk"
     }
 
     stages {
@@ -33,7 +34,7 @@ pipeline {
                 sh '''
                   az keyvault secret set-attributes \
                     --vault-name ${KEYVAULT_NAME} \
-                    --name ${KV_SECRET_NAME} \
+                    --name ${OLD_SECRET_NAME} \
                     --enabled false || true
                 '''
             }
@@ -65,7 +66,7 @@ pipeline {
                 sh '''
                   az keyvault secret set \
                     --vault-name ${KEYVAULT_NAME} \
-                    --name ${KV_SECRET_NAME} \
+                    --name ${NEW_SECRET_NAME} \
                     --value "${NEW_SECRET}"
                 '''
             }
