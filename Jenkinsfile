@@ -3,8 +3,8 @@ pipeline {
 
     environment {
         KEYVAULT_NAME     = "kv-databricks-fab"
-        OLD_SECRET_NAME   = "db-fab-sec-01"
-        NEW_SECRET_NAME   = "customer-key-01"
+        OLD_SECRET_NAME   = "customer-key-01"
+        NEW_SECRET_NAME   = "customer-key-02"
 
         DATABRICKS_HOST  = "https://adb-7405609173671370.10.azuredatabricks.net"
         SP_NAME          = "spn-key-vault-jenk"
