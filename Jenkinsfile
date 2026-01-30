@@ -4,10 +4,10 @@ pipeline {
   environment {
     KEYVAULT_NAME = "kv-databricks-fab"
     OLD_SECRET    = "db-fab-sec-01"
-    NEW_SECRET    = "customer-key-01"
+    NEW_SECRET    = "customer-key-02"     // ✅ missing variable fixed
 
     DATABRICKS_HOST = "https://adb-7405609173671370.10.azuredatabricks.net"
-    SP_ID = "<<<SERVICE_PRINCIPAL_ID>>>"
+    SP_ID = "<<<SERVICE_PRINCIPAL_ID>>>"  // Databricks SP Object ID
   }
 
   stages {
@@ -21,9 +21,9 @@ pipeline {
         ]) {
           sh '''
             az login --service-principal \
-              -u $AZ_CLIENT_ID \
-              -p $AZ_CLIENT_SECRET \
-              --tenant $AZ_TENANT_ID
+              -u "$AZ_CLIENT_ID" \
+              -p "$AZ_CLIENT_SECRET" \
+              --tenant "$AZ_TENANT_ID"
           '''
         }
       }
@@ -33,8 +33,8 @@ pipeline {
       steps {
         sh '''
           az keyvault secret set-attributes \
-            --vault-name ${KEYVAULT_NAME} \
-            --name ${OLD_SECRET} \
+            --vault-name "$KEYVAULT_NAME" \
+            --name "$OLD_SECRET" \
             --enabled false || true
         '''
       }
@@ -47,14 +47,15 @@ pipeline {
         ]) {
           script {
             env.NEW_VALUE = sh(
-              script: """
+              returnStdout: true,
+              script: '''
+                set -e
                 curl -s -X POST \
-                  ${DATABRICKS_HOST}/api/2.0/service-principals/${SP_ID}/secrets \
-                  -H "Authorization: Bearer ${DB_TOKEN}" \
+                  "$DATABRICKS_HOST/api/2.0/service-principals/$SP_ID/secrets" \
+                  -H "Authorization: Bearer $DB_TOKEN" \
                   -H "Content-Type: application/json" \
-                | python3 -c "import sys, json; print(json.load(sys.stdin)['secret'])"
-              """,
-              returnStdout: true
+                | python3 -c 'import sys,json; print(json.load(sys.stdin)["secret"])'
+              '''
             ).trim()
           }
         }
@@ -65,9 +66,9 @@ pipeline {
       steps {
         sh '''
           az keyvault secret set \
-            --vault-name ${KEYVAULT_NAME} \
-            --name ${NEW_SECRET} \
-            --value "${NEW_VALUE}"
+            --vault-name "$KEYVAULT_NAME" \
+            --name "$NEW_SECRET" \
+            --value "$NEW_VALUE"
         '''
       }
     }
