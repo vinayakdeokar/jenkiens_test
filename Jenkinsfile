@@ -40,26 +40,26 @@ pipeline {
       }
     }
 
-    stage('Generate Databricks SP secret') {
-      steps {
+    stage('Generate Databricks SP Secret') {
+    steps {
         withCredentials([
-          string(credentialsId: 'DATABRICKS_WS_TOKEN', variable: 'DB_TOKEN')
+            string(credentialsId: 'DATABRICKS_WS_TOKEN', variable: 'DB_TOKEN')
         ]) {
-          script {
-            env.NEW_VALUE = sh(
-              returnStdout: true,
-              script: '''
-                set -e
-                curl -s -X POST \
-                  "$DATABRICKS_HOST/api/2.0/service-principals/$SP_ID/secrets" \
-                  -H "Authorization: Bearer $DB_TOKEN" \
-                  -H "Content-Type: application/json" \
-                | awk -F'"secret":"' '{print $2}' | awk -F'"' '{print $1}'
-              '''
-            ).trim()
-          }
+            script {
+                env.NEW_VALUE = sh(
+                    returnStdout: true,
+                    script: '''
+                        set -e
+                        RESPONSE=$(curl -s -X POST \
+                          "$DATABRICKS_HOST/api/2.0/service-principals/$SP_ID/secrets" \
+                          -H "Authorization: Bearer $DB_TOKEN" \
+                          -H "Content-Type: application/json")
+
+                        echo "$RESPONSE" | jq -r '.secret'
+                    '''
+                ).trim()
+            }
         }
-      }
     }
 
     stage('Save new secret to Key Vault') {
